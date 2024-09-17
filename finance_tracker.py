@@ -2,7 +2,7 @@ import argparse # command line arguments
 import os # file operations
 import datetime # storing date objects
 import csv
-from helpers.helper_functions import *
+import helper.helper_functions as helper_functions
 
 def make_parser():
     '''
@@ -16,6 +16,7 @@ def make_parser():
     delete [id]
     #budget [amount]
 
+    id: simply refers to the row number in the csv file
     '''
     parser = argparse.ArgumentParser(description='CLI Finance Tracker')
     parser.set_defaults()
@@ -34,7 +35,7 @@ def make_parser():
     update_parser = subparser.add_parser('update')
     update_parser.add_argument('id',type=int,help='finance record id')
     update_parser.add_argument('field',type=str,help='name of the field to change')
-    update_parser.add_argument('value',help='value that will replace the cell of interest')
+    update_parser.add_argument('value',type=str,help='value that will replace the cell of interest')
 
     list_parser = subparser.add_parser('list')
     list_parser.add_argument('--from_date',type=str,help='finance records dated after specified date')
@@ -53,29 +54,25 @@ def make_parser():
 
     return parser
 
-cols = {'ID':0,'Date':1,'Description':2,'Amount':3,'Type':4}
+cols = {'Date':1,'Description':2,'Amount':3,'Type':4}
 
-def spend(id,date,desc,amount):
+def write_record(filename,id,date, desc,amount,type):
     '''
-    Spend appends the user expenses input into the finance.csv
-    it first checks for the optional date and description inputs and assigns a default values to them if there are no inputs detected.
+    write_record appends the user income/expenses input into a csv file
     '''
-    write_to_finance(id,date,desc,-amount,'Expense')
+    with open(filename,'a',newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([id,date,desc,amount,type])
 
-def deposit(id,date,desc, amount):
-    write_to_finance(id,date,desc,amount,'Income')
-
-def update(id,field,value):
-    # read csv
-    # need to check whether i need to rewrite the whole file
-    with open('finance.csv','r') as f:
+def update(filename,id,field,value):
+    with open(filename,'r') as f:
         reader = csv.reader(f)
         rows = list(reader)
     
-    if id <= len(rows)-1 and id>= 0:
-        rows[id+1][cols[field]] = value
+    if id <= len(rows)-1 and id> 0:
+        rows[id][cols[field]] = value
     
-    with open('finance.csv','w',newline='') as f:
+    with open(filename,'w',newline='') as f:
         writer = csv.writer(f)
         writer.writerows(rows)
 
@@ -91,28 +88,43 @@ def summary(*args):
     # return the amount spent, income, budget
     pass
 
-def delete(id):
-    pass
+def delete(filename,id):
+    edited_rows = []
+    with open(filename,'r') as f:
+        reader = csv.reader(f)
+        rows = list(reader)
+        edited_rows.append(rows[0])
+        row_num = 1
+        for row in rows[1:]:
+            if row[0] != str(id):
+                row[0] = row_num
+                edited_rows.append(row)
+                row_num+=1
+    with open(filename,'w',newline='') as f:
+        writer = csv.writer(f)
+        writer.writerows(edited_rows)
+        
 
 def main():
-    id = 0
-    if not os.path.isfile('finance.csv'):
-        write_to_finance('ID','Date','Description','Amount','Type')
+    filename = 'finance.csv'
+    id = 1
+    if not os.path.isfile(filename):
+        write_record(filename,'ID','Date','Description','Amount','Type')
     else:
-        id = get_last_id() + 1
+        id = helper_functions.get_last_id(filename) + 1
     parser = make_parser()
     args = parser.parse_args()
     
     if args.mode =='spend':
-        spend(id,args.date,args.desc,args.amount)
+        write_record(filename,id,args.date,args.desc,-args.amount,'Expense')
     elif args.mode == 'deposit':
-        deposit(id,args.date,args.desc,args.amount)
+        write_record(filename,id,args.date,args.desc,args.amount,'Income')
     elif args.mode == 'update':
-        update(args.id,args.field,args.value)
+        update(filename,args.id,args.field,args.value)
     elif args.mode == 'list':
         list_finance(args.from_date,args.upto)
     elif args.mode == 'delete':
-        delete(args.id)
+        delete(filename,args.id)
     elif args.mode == 'summary':
         summary(args.from_date,args.upto)
     else:
@@ -120,5 +132,9 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
 
+
+# python src\finance_tracker.py spend 20 --desc 'Shopping' --date '2024-01-20'
+# python src\finance_tracker.py deposit 100 --desc 'Investment' --date '2024-12-25'
+# python src\finance_tracker.py update 1 Description 'Changed'
+# python src\finance_tracker.py delete 2

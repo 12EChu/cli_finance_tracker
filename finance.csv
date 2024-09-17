@@ -1,4 +1,2 @@
 ID,Date,Description,Amount,Type
-0,2021-02-01,charity,-10.0,Expense
-1,2021-12-01,charity,-10.0,Expense
-2,2024-09-16,income,100.0,Income
+1,'2024-01-20','Shopping',-20.0,Expense
