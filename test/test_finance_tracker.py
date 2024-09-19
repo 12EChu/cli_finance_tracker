@@ -1,7 +1,7 @@
 import os
 import csv
 import unittest
-import finance_tracker
+from src import finance_tracker
 
 class TestFinance_Tracker(unittest.TestCase):
     def test_write_record(self):

@@ -2,7 +2,8 @@ import argparse # command line arguments
 import os # file operations
 import datetime # storing date objects
 import csv
-import helper.helper_functions as helper_functions
+import src.helper_functions as helper_functions
+from tabulate import tabulate
 
 def make_parser():
     '''
@@ -14,7 +15,6 @@ def make_parser():
     list [--from date/month/year] [--to date/month/year]
     summary [--from date/month/year] [--to date/month/year]
     delete [id]
-    #budget [amount]
 
     id: simply refers to the row number in the csv file
     '''
@@ -38,19 +38,15 @@ def make_parser():
     update_parser.add_argument('value',type=str,help='value that will replace the cell of interest')
 
     list_parser = subparser.add_parser('list')
-    list_parser.add_argument('--from_date',type=str,help='finance records dated after specified date')
-    list_parser.add_argument('--upto',type=str,help='finance records dated before specified date')
+    list_parser.add_argument('--from_date',default= str(datetime.date.today()),type=str,help='finance records dated after specified date')
+    list_parser.add_argument('--upto',default= str(datetime.date.today()),type=str,help='finance records dated before specified date')
 
     summary_parser = subparser.add_parser('summary')
-    summary_parser.add_argument('--from_date',type=str,help='report on finance dated after specified date')
-    summary_parser.add_argument('--upto',type=str,help='report on finance dated before specified date')
+    summary_parser.add_argument('--from_date',default= str(datetime.date.today()),type=str,help='report on finance dated after specified date')
+    summary_parser.add_argument('--upto',default= str(datetime.date.today()),type=str,help='report on finance dated before specified date')
 
     delete_parser = subparser.add_parser('delete')
     delete_parser.add_argument('id',type=int,help='finance record id to remove')
-
-    # ignore budget for now
-    # budget_parser = subparser.add_parser('budget')
-    # budget_parser.add_argument('id',type=float,help='set your monthly budget')
 
     return parser
 
@@ -63,6 +59,7 @@ def write_record(filename,id,date, desc,amount,type):
     with open(filename,'a',newline='') as f:
         writer = csv.writer(f)
         writer.writerow([id,date,desc,amount,type])
+    helper_functions.last_five(filename)
 
 def update(filename,id,field,value):
     with open(filename,'r') as f:
@@ -77,16 +74,31 @@ def update(filename,id,field,value):
         writer.writerows(rows)
 
 
-def list_finance(*args):
-    # assume date is in right format
-    # read file, filter for dates 
-    # print the dates may need a print function
-    pass
+def list_finance(filename,fdate,tdate):
+    filtered_rows = helper_functions.filter_records(filename,fdate,tdate)
+    if len(filtered_rows) > 2:
+        sorted_rows = sorted(filtered_rows[1:],key= lambda row: datetime.date.fromisoformat(row[1])) 
+    elif len(filtered_rows) == 2:
+        sorted_rows = filtered_rows[1]
+    else:
+        sorted_rows = []
+    print(tabulate(sorted_rows,headers=['ID','Date','Description','Amount','Type'],tablefmt='fancy_grid'))
 
-def summary(*args):
-    # read vals
-    # return the amount spent, income, budget
-    pass
+def summary(filename,fdate,tdate):
+    filtered_rows = helper_functions.filter_records(filename,fdate,tdate)
+    expense = 0
+    income = 0
+    for row in filtered_rows[1:]:
+        value = float(row[3])
+        if value < 0:
+            expense -= value
+        else:
+            income += value
+    savings = income-expense
+    print(f'Savings: {savings}')
+    print(f'Income: {income}')
+    print(f'Expense: {expense}')
+    
 
 def delete(filename,id):
     edited_rows = []
@@ -122,11 +134,11 @@ def main():
     elif args.mode == 'update':
         update(filename,args.id,args.field,args.value)
     elif args.mode == 'list':
-        list_finance(args.from_date,args.upto)
+        list_finance(filename,args.from_date,args.upto)
     elif args.mode == 'delete':
         delete(filename,args.id)
     elif args.mode == 'summary':
-        summary(args.from_date,args.upto)
+        summary(filename,args.from_date,args.upto)
     else:
         parser.print_help()
 
